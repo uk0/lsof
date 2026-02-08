@@ -45,15 +45,18 @@ detect_platform() {
 # Get latest release tag
 get_latest_version() {
     local url="https://api.github.com/repos/${REPO}/releases/latest"
-    local version
+    local json version
 
     if command -v curl &>/dev/null; then
-        version=$(curl -fsSL "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+        json=$(curl -fsSL "$url")
     elif command -v wget &>/dev/null; then
-        version=$(wget -qO- "$url" | grep '"tag_name"' | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')
+        json=$(wget -qO- "$url")
     else
         error "Neither curl nor wget found. Please install one of them."
     fi
+
+    # Extract tag_name value — portable across macOS/Linux sed
+    version=$(echo "$json" | grep -o '"tag_name" *: *"[^"]*"' | head -1 | grep -o '"v[^"]*"' | tr -d '"')
 
     [ -z "$version" ] && error "Failed to fetch latest version. Check https://github.com/${REPO}/releases"
     echo "$version"
