@@ -4,6 +4,7 @@ use super::open_file::OpenFileInfo;
 pub struct ProcessInfo {
     pub pid: u32,
     pub ppid: Option<u32>,
+    pub pgid: Option<u32>,
     pub command: String,
     pub comm: String,
     pub user: String,

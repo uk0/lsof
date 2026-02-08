@@ -1,5 +1,5 @@
 use ratatui::widgets::{ListState, TableState};
-use crate::model::ProcessInfo;
+use crate::model::{ProcessInfo, OpenFileInfo};
 use crate::platform::PlatformProvider;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
@@ -30,6 +30,7 @@ pub struct AppState {
     pub loading: bool,
     pub match_count: usize,
     pub total_count: usize,
+    pub export_data: Option<String>,
 }
 
 impl AppState {
@@ -57,6 +58,7 @@ impl AppState {
             loading: false,
             match_count,
             total_count,
+            export_data: None,
         }
     }
     /// Apply fuzzy search to the process list based on current search_input.
@@ -244,5 +246,141 @@ impl AppState {
             }
             DetailTab::Summary => 0,
         }
+    }
+
+    /// Get the currently selected line text from the detail view for yanking.
+    pub fn yank_selected_line(&self, open_files: &[OpenFileInfo]) -> Option<String> {
+        match self.detail_tab {
+            DetailTab::OpenFiles => {
+                let idx = self.file_table_state.selected()?;
+                let file = open_files.get(idx)?;
+                Some(format!("{}\t{}\t{}\t{}\t{}\t{}",
+                    file.fd, file.file_type, file.device,
+                    file.size_off.map(|s| s.to_string()).unwrap_or_default(),
+                    file.node, file.name))
+            }
+            _ => None,
+        }
+    }
+
+    /// Export full process data as formatted text.
+    pub fn export_process_data(&self, process: &ProcessInfo, open_files: &[OpenFileInfo]) -> String {
+        let mut out = String::new();
+        out.push_str(&format!("PID: {}\n", process.pid));
+        out.push_str(&format!("COMMAND: {}\n", process.comm));
+        out.push_str(&format!("USER: {}\n", process.user));
+        if let Some(ppid) = process.ppid {
+            out.push_str(&format!("PPID: {}\n", ppid));
+        }
+        out.push_str(&format!("\nOpen Files ({}):\n", open_files.len()));
+        out.push_str("FD\tTYPE\tDEVICE\tSIZE/OFF\tNODE\tNAME\n");
+        for f in open_files {
+            out.push_str(&format!("{}\t{}\t{}\t{}\t{}\t{}\n",
+                f.fd, f.file_type, f.device,
+                f.size_off.map(|s| s.to_string()).unwrap_or_default(),
+                f.node, f.name));
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::model::open_file::{OpenFileInfo, FileType, FdType, FdMode};
+    use crate::model::process::ProcessInfo;
+
+    fn make_test_file(name: &str) -> OpenFileInfo {
+        OpenFileInfo {
+            fd: FdType::Numbered(1, FdMode::Read),
+            file_type: FileType::Reg,
+            device: "1,5".into(),
+            size_off: Some(1024),
+            node: "12345".into(),
+            name: name.into(),
+            mode: Some(FdMode::Read),
+            link_target: None,
+            send_queue: None,
+            recv_queue: None,
+        }
+    }
+
+    fn make_test_process() -> ProcessInfo {
+        ProcessInfo {
+            pid: 1234,
+            command: "test-cmd".into(),
+            comm: "test".into(),
+            user: "root".into(),
+            uid: 0,
+            ppid: Some(1),
+            pgid: None,
+            open_files: vec![],
+        }
+    }
+
+    #[test]
+    fn test_export_process_data() {
+        let app = AppState::new(vec![]);
+        let process = make_test_process();
+        let files = vec![make_test_file("/tmp/test.txt")];
+        let data = app.export_process_data(&process, &files);
+        assert!(data.contains("PID: 1234"));
+        assert!(data.contains("COMMAND: test"));
+        assert!(data.contains("USER: root"));
+        assert!(data.contains("PPID: 1"));
+        assert!(data.contains("/tmp/test.txt"));
+        assert!(data.contains("Open Files (1):"));
+    }
+
+    #[test]
+    fn test_export_process_data_no_ppid() {
+        let app = AppState::new(vec![]);
+        let mut process = make_test_process();
+        process.ppid = None;
+        let files = vec![];
+        let data = app.export_process_data(&process, &files);
+        assert!(data.contains("PID: 1234"));
+        assert!(!data.contains("PPID:"));
+        assert!(data.contains("Open Files (0):"));
+    }
+
+    #[test]
+    fn test_yank_selected_line_open_files_tab() {
+        let mut app = AppState::new(vec![]);
+        app.detail_tab = DetailTab::OpenFiles;
+        app.file_table_state.select(Some(0));
+        let files = vec![make_test_file("/tmp/test.txt")];
+        let line = app.yank_selected_line(&files);
+        assert!(line.is_some());
+        let line = line.unwrap();
+        assert!(line.contains("/tmp/test.txt"));
+        assert!(line.contains("REG"));
+        assert!(line.contains("12345"));
+    }
+
+    #[test]
+    fn test_yank_selected_line_no_selection() {
+        let mut app = AppState::new(vec![]);
+        app.detail_tab = DetailTab::OpenFiles;
+        app.file_table_state.select(None);
+        let files = vec![make_test_file("/tmp/test.txt")];
+        let line = app.yank_selected_line(&files);
+        assert!(line.is_none());
+    }
+
+    #[test]
+    fn test_yank_selected_line_non_openfiles_tab() {
+        let mut app = AppState::new(vec![]);
+        app.detail_tab = DetailTab::Network;
+        app.file_table_state.select(Some(0));
+        let files = vec![make_test_file("/tmp/test.txt")];
+        let line = app.yank_selected_line(&files);
+        assert!(line.is_none());
+    }
+
+    #[test]
+    fn test_export_data_field_default_none() {
+        let app = AppState::new(vec![]);
+        assert!(app.export_data.is_none());
     }
 }

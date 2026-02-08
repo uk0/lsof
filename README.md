@@ -84,6 +84,14 @@ loof -I
 | `-F` | Field output mode | `-F pcn` |
 | `+c` | Command name width | `+c 15` |
 | `-r` | Repeat interval (seconds) | `-r 2` |
+| `-w` | Suppress warnings | `-w` |
+| `-g` | Filter by process group ID | `-g 1234` or `-g ^1234` |
+| `-s` | File size filter | `-s +10M` or `-s -1K` |
+| `-b` | Avoid kernel blocks (no-op) | `-b` |
+| `-x` | Cross filesystem (no-op) | `-x` |
+| `-S` | Avoid stat() calls | `-S` |
+| `-L` | Follow symbolic links | `-L` |
+| `-T` | TCP/TPI info (queue sizes) | `-T` or `-Tq` |
 
 ### Interactive Mode
 
@@ -103,6 +111,8 @@ loof -I
 | `Esc` | Clear search / Quit | Back to search |
 | `Ctrl+U` | Clear search | — |
 | `q` | Quit | Quit |
+| `Ctrl+Y` | — | Yank selected line |
+| `Ctrl+E` | — | Export process data |
 | `Ctrl+R` | Refresh process list | — |
 
 ## Feature Comparison: loof vs lsof
@@ -113,7 +123,7 @@ loof -I
 |---------|:----:|:----:|-------|
 | Process listing | ✅ | ✅ | PID, command, user, PPID |
 | Open file enumeration (macOS) | ✅ | ✅ | Via raw FFI `proc_pidfdinfo` |
-| Open file enumeration (Linux) | 🚧 | ✅ | Stub only, pending `/proc/[pid]/fd` |
+| Open file enumeration (Linux) | ✅ | ✅ | Via `/proc/[pid]/fd` with procfs |
 | File type detection | ✅ | ✅ | 13 types: REG, DIR, CHR, BLK, FIFO, SOCK, LINK, PIPE, IPv4, IPv6, Unix, Kqueue, Systm |
 | Network connection detection | ✅ | ✅ | TCP/UDP/Unix socket from FDs |
 | Symlink target resolution | ✅ | ✅ | `link_target` field |
@@ -138,14 +148,14 @@ loof -I
 | `+D` | ✅ | ✅ | Recursive directory search |
 | `+d` | ✅ | ✅ | Non-recursive directory search |
 | `+c` | ✅ | ✅ | Command name width |
-| `-L` | ❌ | ✅ | Follow symbolic links |
-| `-w` | ❌ | ✅ | Suppress warnings |
-| `-g` | ❌ | ✅ | Process group filter |
-| `-s` | ❌ | ✅ | File size filter |
-| `-T` | ❌ | ✅ | TCP/TPI info |
-| `-b` | ❌ | ✅ | Avoid kernel blocks |
-| `-S` | ❌ | ✅ | Avoid stat calls |
-| `-x` | ❌ | ✅ | Cross filesystem/mountpoint |
+| `-w` | ✅ | ✅ | Suppress warnings |
+| `-g` | ✅ | ✅ | Process group filter |
+| `-s` | ✅ | ✅ | File size filter |
+| `-L` | ✅ | ✅ | Follow symbolic links |
+| `-T` | ✅ | ✅ | TCP/TPI info |
+| `-b` | ✅ | ✅ | Avoid kernel blocks |
+| `-S` | ✅ | ✅ | Avoid stat calls |
+| `-x` | ✅ | ✅ | Cross filesystem/mountpoint |
 
 ### Unique to loof (not in lsof)
 
@@ -157,13 +167,14 @@ loof -I
 | Fuzzy matching | SkimMatcherV2 for approximate search |
 | File tree view | Hierarchical directory-grouped display |
 | FD statistics | Per-type counts and disk usage summary |
+| Selection export | `Ctrl+Y` yank line, `Ctrl+E` export process data |
 
 ### Platform Support
 
 | Platform | Process Listing | Open FD Enumeration | Network Detection | Status |
 |----------|:-:|:-:|:-:|--------|
 | macOS | ✅ | ✅ | ✅ | **Fully implemented** |
-| Linux | ✅ | 🚧 | 🚧 | Process listing works; FD enumeration pending |
+| Linux | ✅ | ✅ | ✅ | **Fully implemented** |
 
 ## Architecture
 
@@ -214,11 +225,11 @@ src/
 
 ## Test Coverage
 
-- **41 unit tests** — filter parsing, matching logic, edge cases
-- **8 CLI integration tests** — output format, flags, headers
+- **54 unit tests** — filter parsing, matching logic, edge cases, TUI export
+- **13 CLI integration tests** — output format, flags, headers
 - **7 filter integration tests** — PID/user/command/inet/AND mode
 - **2 platform tests** — process listing, PID filtering
-- **Total: 58 tests**, all passing
+- **Total: 76 tests**, all passing
 
 ## Build
 
@@ -238,13 +249,13 @@ cargo run -- -I
 
 ## Roadmap
 
-- [ ] Linux open file descriptor enumeration via `/proc/[pid]/fd`
-- [ ] Linux network connection parsing via `/proc/net/tcp|udp`
-- [ ] `-L` follow symbolic links
-- [ ] `-g` process group filtering
-- [ ] `-s` file size filtering
-- [ ] `-T` TCP/TPI detailed info
-- [ ] Export/pipe TUI selection results
+- [x] Linux open file descriptor enumeration via `/proc/[pid]/fd`
+- [x] Linux network connection parsing via `/proc/net/tcp|udp`
+- [x] `-L` follow symbolic links
+- [x] `-g` process group filtering
+- [x] `-s` file size filtering
+- [x] `-T` TCP/TPI detailed info
+- [x] Export/pipe TUI selection results
 
 ## License
 

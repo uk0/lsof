@@ -1,6 +1,6 @@
 use crate::error::{LoofError, Result};
 use crate::model::*;
-use super::PlatformProvider;
+use super::{PlatformProvider, ProviderConfig};
 use sysinfo::System;
 
 use std::ffi::CStr;
@@ -285,6 +285,8 @@ fn open_file_from_vnode(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
         name: path,
         mode: Some(mode),
         link_target,
+        send_queue: None,
+        recv_queue: None,
     })
 }
 
@@ -332,6 +334,8 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
                 name,
                 mode: Some(FdMode::ReadWrite),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             })
         }
         SocketInfoKind::In => {
@@ -376,6 +380,8 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
                 name,
                 mode: Some(FdMode::ReadWrite),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             })
         }
         SocketInfoKind::Un => {
@@ -405,6 +411,8 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
                 name,
                 mode: Some(FdMode::ReadWrite),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             })
         }
         SocketInfoKind::KernCtl => {
@@ -423,6 +431,8 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
                 name: ctl_name,
                 mode: Some(FdMode::ReadWrite),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             })
         }
         _ => {
@@ -436,6 +446,8 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
                 name: format!("socket (kind={:?})", kind),
                 mode: Some(FdMode::ReadWrite),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             })
         }
     }
@@ -461,6 +473,8 @@ fn open_file_from_pipe(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
         ),
         mode: Some(mode),
         link_target: None,
+        send_queue: None,
+        recv_queue: None,
     })
 }
 
@@ -480,6 +494,8 @@ fn open_file_from_kqueue(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
         name: format!("count={}, state=0x{:x}", info.kqueueinfo.kq_stat.vst_size, info.kqueueinfo.kq_state),
         mode: Some(mode),
         link_target: None,
+        send_queue: None,
+        recv_queue: None,
     })
 }
 
@@ -589,11 +605,13 @@ fn get_fd_list(pid: i32) -> Vec<ProcFDInfo> {
     listpidinfo::<ListFDs>(pid, max_fds).unwrap_or_default()
 }
 
-pub struct MacosProvider;
+pub struct MacosProvider {
+    config: ProviderConfig,
+}
 
 impl MacosProvider {
-    pub fn new() -> Self {
-        Self
+    pub fn new(config: ProviderConfig) -> Self {
+        Self { config }
     }
 }
 
@@ -628,6 +646,7 @@ impl PlatformProvider for MacosProvider {
             processes.push(ProcessInfo {
                 pid: pid_val,
                 ppid,
+                pgid: None,
                 command,
                 comm,
                 user,
@@ -655,6 +674,8 @@ impl PlatformProvider for MacosProvider {
                 name: exe_path,
                 mode: Some(FdMode::Read),
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             });
         }
 
@@ -663,7 +684,38 @@ impl PlatformProvider for MacosProvider {
             let fd_type: ProcFDType = fd.proc_fdtype.into();
 
             let info = match fd_type {
-                ProcFDType::VNode => open_file_from_vnode(fd_num, pid_i32),
+                ProcFDType::VNode => {
+                    let mut entry = open_file_from_vnode(fd_num, pid_i32);
+                    // When follow_symlinks is true and the file is a symlink,
+                    // stat the target path and replace file properties with
+                    // the target's properties.
+                    if self.config.follow_symlinks {
+                        if let Some(ref mut e) = entry {
+                            if e.file_type == FileType::Link {
+                                if let Some(ref target) = e.link_target {
+                                    if let Ok(meta) = std::fs::metadata(target) {
+                                        use std::os::unix::fs::MetadataExt;
+                                        let ft = meta.file_type();
+                                        e.file_type = if ft.is_file() {
+                                            FileType::Reg
+                                        } else if ft.is_dir() {
+                                            FileType::Dir
+                                        } else {
+                                            FileType::Unknown("followed".to_string())
+                                        };
+                                        e.size_off = Some(meta.size());
+                                        let dev = meta.dev() as u32;
+                                        e.device = format_device(dev);
+                                        e.node = meta.ino().to_string();
+                                        // Keep name as "path -> target" format
+                                        e.name = format!("{} -> {}", e.name, target);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    entry
+                }
                 ProcFDType::Socket => open_file_from_socket(fd_num, pid_i32),
                 ProcFDType::Pipe => open_file_from_pipe(fd_num, pid_i32),
                 ProcFDType::KQueue => open_file_from_kqueue(fd_num, pid_i32),
@@ -678,6 +730,8 @@ impl PlatformProvider for MacosProvider {
                         name: format!("{:?} fd={}", fd_type, fd_num),
                         mode: Some(FdMode::Unknown),
                         link_target: None,
+                        send_queue: None,
+                        recv_queue: None,
                     })
                 }
             };

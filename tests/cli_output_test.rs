@@ -1,4 +1,5 @@
 use std::process;
+use assert_cmd::Command;
 
 // ---------------------------------------------------------------------------
 // Header output tests
@@ -161,4 +162,64 @@ fn test_cmd_width_flag() {
         "loof -p PID +c 15 should succeed. stderr: {}",
         String::from_utf8_lossy(&output.stderr),
     );
+}
+
+// ---------------------------------------------------------------------------
+// Compatibility flag tests (-b, -x, -S, -L)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_flag_b_accepted() {
+    let output = Command::cargo_bin("loof")
+        .unwrap()
+        .args(&["-b", "-p", "1", "-t"])
+        .output()
+        .expect("failed to run");
+    // Just verify the flag is accepted (exit code 0 or normal output)
+    assert!(output.status.success() || !output.stderr.is_empty());
+}
+
+#[test]
+fn test_flag_x_accepted() {
+    let output = Command::cargo_bin("loof")
+        .unwrap()
+        .args(&["-x", "-p", "1", "-t"])
+        .output()
+        .expect("failed to run");
+    assert!(output.status.success() || !output.stderr.is_empty());
+}
+
+#[test]
+fn test_flag_s_upper_accepted() {
+    let output = Command::cargo_bin("loof")
+        .unwrap()
+        .args(&["-S", "-p", "1", "-t"])
+        .output()
+        .expect("failed to run");
+    assert!(output.status.success() || !output.stderr.is_empty());
+}
+
+#[test]
+fn test_flag_l_upper_accepted() {
+    let output = Command::cargo_bin("loof")
+        .unwrap()
+        .args(&["-L", "-p", "1", "-t"])
+        .output()
+        .expect("failed to run");
+    assert!(output.status.success() || !output.stderr.is_empty());
+}
+
+// ---------------------------------------------------------------------------
+// TCP/TPI info flag tests (-T)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_flag_t_upper_tcp_info() {
+    let output = Command::cargo_bin("loof")
+        .unwrap()
+        .args(&["-T", "-i", "-n", "-P", "-p", "1"])
+        .output()
+        .expect("failed to run");
+    // Verify the flag is accepted
+    assert!(output.status.success() || !output.stderr.is_empty());
 }

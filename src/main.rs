@@ -14,7 +14,7 @@ use clap::Parser;
 use cli::{preprocess_args, CliArgs};
 use filter::FilterConfig;
 use output::OutputFormatter;
-use platform::create_provider;
+use platform::{create_provider, ProviderConfig};
 
 use app::{AppState, Action};
 use app::action::map_key_to_action;
@@ -26,7 +26,11 @@ fn main() {
     let processed = preprocess_args(raw_args);
     let args = CliArgs::parse_from(processed);
 
-    let provider = create_provider();
+    let config = ProviderConfig {
+        avoid_stat: args.avoid_stat,
+        follow_symlinks: args.follow_symlinks,
+    };
+    let provider = create_provider(config);
 
     if args.interactive {
         if let Err(e) = run_tui(&*provider) {
@@ -193,6 +197,12 @@ fn run_tui(provider: &dyn platform::PlatformProvider) -> std::io::Result<()> {
 
     // Restore terminal
     ratatui::restore();
+
+    // Print export data if the user triggered Ctrl+E export
+    if let Some(data) = &state.export_data {
+        println!("{}", data);
+    }
+
     Ok(())
 }
 
@@ -249,6 +259,21 @@ fn dispatch_action(
         }
         Action::Refresh => {
             state.refresh(provider);
+        }
+        Action::YankSelected => {
+            if let Some(ref proc) = state.selected_process {
+                if let Some(line) = state.yank_selected_line(&proc.open_files) {
+                    // Print to stderr so it doesn't interfere with TUI
+                    eprintln!("\x1b[33m[Yanked]\x1b[0m {}", line);
+                }
+            }
+        }
+        Action::ExportProcess => {
+            if let Some(ref proc) = state.selected_process {
+                let data = state.export_process_data(proc, &proc.open_files);
+                state.export_data = Some(data);
+                state.should_quit = true;
+            }
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::cli::CliArgs;
-use crate::model::ProcessInfo;
+use crate::model::{FileType, ProcessInfo};
 
 /// Formats process and open-file data in lsof-compatible output.
 pub struct OutputFormatter {
@@ -17,6 +17,8 @@ pub struct OutputFormatter {
     pub terse: bool,
     /// `-F` flag: field-delimited output with the given field characters.
     pub field_output: Option<String>,
+    /// `-T` flag: TCP/TPI info (s=state, q=queue sizes).
+    pub tcp_info: Option<String>,
 }
 
 impl OutputFormatter {
@@ -30,6 +32,7 @@ impl OutputFormatter {
             show_ppid: args.show_ppid,
             terse: args.terse,
             field_output: args.field_output.clone(),
+            tcp_info: args.tcp_info.clone(),
         }
     }
 
@@ -61,7 +64,22 @@ impl OutputFormatter {
 
         for file in &proc.open_files {
             let size_off = format_size_off(file.size_off);
-            let name = &file.name;
+            let mut display_name = file.name.clone();
+
+            // When -T flag includes "q", append queue sizes for network files.
+            if let Some(ref tcp_flags) = self.tcp_info {
+                if tcp_flags.contains('q') {
+                    let is_network = matches!(
+                        file.file_type,
+                        FileType::IPv4 | FileType::IPv6
+                    );
+                    if is_network {
+                        if let (Some(rq), Some(sq)) = (file.recv_queue, file.send_queue) {
+                            display_name.push_str(&format!(" QR={} QS={}", rq, sq));
+                        }
+                    }
+                }
+            }
 
             if self.show_ppid {
                 println!(
@@ -75,7 +93,7 @@ impl OutputFormatter {
                     file.device,
                     size_off,
                     file.node,
-                    name,
+                    display_name,
                 );
             } else {
                 println!(
@@ -88,7 +106,7 @@ impl OutputFormatter {
                     file.device,
                     size_off,
                     file.node,
-                    name,
+                    display_name,
                 );
             }
         }
@@ -217,6 +235,7 @@ mod tests {
             show_ppid: false,
             terse: false,
             field_output: None,
+            tcp_info: None,
         };
         assert_eq!(fmt.cmd_width, 9);
     }
@@ -231,12 +250,14 @@ mod tests {
             show_ppid: false,
             terse: true,
             field_output: None,
+            tcp_info: None,
         };
 
         let procs = vec![
             ProcessInfo {
                 pid: 100,
                 ppid: None,
+                pgid: None,
                 command: "bash".to_string(),
                 comm: "bash".to_string(),
                 user: "root".to_string(),
@@ -246,6 +267,7 @@ mod tests {
             ProcessInfo {
                 pid: 200,
                 ppid: None,
+                pgid: None,
                 command: "nginx".to_string(),
                 comm: "nginx".to_string(),
                 user: "www".to_string(),
@@ -268,11 +290,13 @@ mod tests {
             show_ppid: false,
             terse: false,
             field_output: Some("pcun".to_string()),
+            tcp_info: None,
         };
 
         let proc = ProcessInfo {
             pid: 1234,
             ppid: Some(1),
+            pgid: None,
             command: "/usr/sbin/nginx".to_string(),
             comm: "nginx".to_string(),
             user: "root".to_string(),
@@ -286,6 +310,8 @@ mod tests {
                 name: "/".to_string(),
                 mode: None,
                 link_target: None,
+                send_queue: None,
+                recv_queue: None,
             }],
         };
 

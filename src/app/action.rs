@@ -15,6 +15,8 @@ pub enum Action {
     NextTab,
     PrevTab,
     Refresh,
+    YankSelected,
+    ExportProcess,
 }
 
 /// Map a key event to an action based on the current view mode and search state.
@@ -68,6 +70,8 @@ fn map_detail_key(key: KeyEvent) -> Option<Action> {
     if key.modifiers.contains(KeyModifiers::CONTROL) {
         return match key.code {
             KeyCode::Char('c') => Some(Action::Quit),
+            KeyCode::Char('y') => Some(Action::YankSelected),
+            KeyCode::Char('e') => Some(Action::ExportProcess),
             _ => None,
         };
     }

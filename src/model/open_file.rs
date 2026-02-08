@@ -10,6 +10,8 @@ pub struct OpenFileInfo {
     pub name: String,
     pub mode: Option<FdMode>,
     pub link_target: Option<String>,
+    pub send_queue: Option<u64>,
+    pub recv_queue: Option<u64>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

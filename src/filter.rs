@@ -8,6 +8,7 @@ use crate::model::{FileType, OpenFileInfo, ProcessInfo};
 #[derive(Debug, Default)]
 pub struct FilterConfig {
     pub pids: Option<PidFilter>,
+    pub pgids: Option<PgidFilter>,
     pub users: Option<UserFilter>,
     pub commands: Option<CommandFilter>,
     pub inet: Option<InetFilter>,
@@ -15,6 +16,7 @@ pub struct FilterConfig {
     pub dir: Option<PathBuf>,
     pub names: Vec<PathBuf>,
     pub and_mode: bool,
+    pub size_filter: Option<SizeFilter>,
 }
 
 /// PID-based filter with include/exclude lists.
@@ -22,6 +24,28 @@ pub struct FilterConfig {
 pub struct PidFilter {
     pub include: Vec<u32>,
     pub exclude: Vec<u32>,
+}
+
+/// PGID-based filter with include/exclude lists.
+#[derive(Debug, Default)]
+pub struct PgidFilter {
+    pub include: Vec<u32>,
+    pub exclude: Vec<u32>,
+}
+
+/// Size comparison operator.
+#[derive(Debug)]
+pub enum SizeOp {
+    GreaterThan,
+    LessThan,
+    Exact,
+}
+
+/// File size filter.
+#[derive(Debug)]
+pub struct SizeFilter {
+    pub op: SizeOp,
+    pub bytes: u64,
 }
 
 /// User-based filter with include/exclude lists.
@@ -81,6 +105,72 @@ fn parse_pid_filter(s: &str) -> Result<PidFilter> {
     Ok(filter)
 }
 
+/// Parse a PGID filter string.
+///
+/// Format: comma-separated PGIDs, prefix `^` to exclude.
+/// Examples: "1234,5678", "^1234", "1234,^5678"
+fn parse_pgid_filter(s: &str) -> Result<PgidFilter> {
+    let mut filter = PgidFilter::default();
+    for token in s.split(',') {
+        let token = token.trim();
+        if token.is_empty() {
+            continue;
+        }
+        if let Some(rest) = token.strip_prefix('^') {
+            let pgid: u32 = rest
+                .parse()
+                .map_err(|_| LoofError::Parse(format!("invalid PGID: {}", rest)))?;
+            filter.exclude.push(pgid);
+        } else {
+            let pgid: u32 = token
+                .parse()
+                .map_err(|_| LoofError::Parse(format!("invalid PGID: {}", token)))?;
+            filter.include.push(pgid);
+        }
+    }
+    Ok(filter)
+}
+
+/// Parse a size filter string.
+///
+/// Format: `[+|-]SIZE[K|KB|M|MB|G|GB]`
+///
+/// Prefix `+` means greater-than, `-` means less-than, no prefix means exact.
+/// Suffixes: K/KB = 1024, M/MB = 1048576, G/GB = 1073741824.
+fn parse_size_filter(s: &str) -> Option<SizeFilter> {
+    let s = s.trim();
+    if s.is_empty() {
+        return None;
+    }
+
+    let (op, rest) = if let Some(r) = s.strip_prefix('+') {
+        (SizeOp::GreaterThan, r)
+    } else if let Some(r) = s.strip_prefix('-') {
+        (SizeOp::LessThan, r)
+    } else {
+        (SizeOp::Exact, s)
+    };
+
+    // Split numeric part from suffix
+    let rest = rest.trim();
+    let num_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let (num_str, suffix) = rest.split_at(num_end);
+    let base: u64 = num_str.parse().ok()?;
+
+    let multiplier: u64 = match suffix.to_uppercase().as_str() {
+        "" => 1,
+        "K" | "KB" => 1024,
+        "M" | "MB" => 1_048_576,
+        "G" | "GB" => 1_073_741_824,
+        _ => return None,
+    };
+
+    Some(SizeFilter {
+        op,
+        bytes: base * multiplier,
+    })
+}
+
 /// Parse a user filter string.
 ///
 /// Format: comma-separated user names, prefix `^` to exclude.
@@ -127,9 +217,15 @@ impl FilterConfig {
             None => None,
         };
 
+        let pgids = match &args.pgid {
+            Some(s) => Some(parse_pgid_filter(s)?),
+            None => None,
+        };
+
         let users = args.user.as_ref().map(|s| parse_user_filter(s));
         let commands = args.command.as_ref().map(|s| parse_command_filter(s));
         let inet = args.inet.as_ref().map(|s| parse_inet_filter(s));
+        let size_filter = args.size_filter.as_ref().and_then(|s| parse_size_filter(s));
 
         let dir_tree = args.dir_tree.as_ref().map(PathBuf::from);
         let dir = args.dir.as_ref().map(PathBuf::from);
@@ -137,6 +233,7 @@ impl FilterConfig {
 
         Ok(FilterConfig {
             pids,
+            pgids,
             users,
             commands,
             inet,
@@ -144,18 +241,21 @@ impl FilterConfig {
             dir,
             names,
             and_mode: args.and_mode,
+            size_filter,
         })
     }
 
     /// Returns `true` if no filters are configured at all.
     pub fn is_empty(&self) -> bool {
         self.pids.is_none()
+            && self.pgids.is_none()
             && self.users.is_none()
             && self.commands.is_none()
             && self.inet.is_none()
             && self.dir_tree.is_none()
             && self.dir.is_none()
             && self.names.is_empty()
+            && self.size_filter.is_none()
     }
 
     /// Check whether a process matches the configured process-level filters
@@ -163,11 +263,12 @@ impl FilterConfig {
     /// sufficient; in AND mode all active filters must match.
     pub fn matches_process(&self, proc: &ProcessInfo) -> bool {
         // If no process-level filters are set, everything matches.
-        if self.pids.is_none() && self.users.is_none() && self.commands.is_none() {
+        if self.pids.is_none() && self.pgids.is_none() && self.users.is_none() && self.commands.is_none() {
             return true;
         }
 
         let pid_match = self.check_pid(proc);
+        let pgid_match = self.check_pgid(proc);
         let user_match = self.check_user(proc);
         let cmd_match = self.check_command(proc);
 
@@ -176,6 +277,9 @@ impl FilterConfig {
             let mut pass = true;
             if self.pids.is_some() {
                 pass = pass && pid_match;
+            }
+            if self.pgids.is_some() {
+                pass = pass && pgid_match;
             }
             if self.users.is_some() {
                 pass = pass && user_match;
@@ -189,6 +293,9 @@ impl FilterConfig {
             let mut any = false;
             if self.pids.is_some() {
                 any = any || pid_match;
+            }
+            if self.pgids.is_some() {
+                any = any || pgid_match;
             }
             if self.users.is_some() {
                 any = any || user_match;
@@ -208,6 +315,7 @@ impl FilterConfig {
             && self.dir_tree.is_none()
             && self.dir.is_none()
             && self.names.is_empty()
+            && self.size_filter.is_none()
         {
             return true;
         }
@@ -228,6 +336,18 @@ impl FilterConfig {
                 let n_str = n.to_string_lossy();
                 file.name == *n_str
             }));
+        }
+        if let Some(ref sf) = self.size_filter {
+            if let Some(size) = file.size_off {
+                let matches = match sf.op {
+                    SizeOp::GreaterThan => size > sf.bytes,
+                    SizeOp::LessThan => size < sf.bytes,
+                    SizeOp::Exact => size == sf.bytes,
+                };
+                results.push(matches);
+            } else {
+                results.push(false);
+            }
         }
 
         if results.is_empty() {
@@ -254,6 +374,26 @@ impl FilterConfig {
                     true
                 } else {
                     f.include.contains(&proc.pid)
+                }
+            }
+        }
+    }
+
+    fn check_pgid(&self, proc: &ProcessInfo) -> bool {
+        match &self.pgids {
+            None => true,
+            Some(f) => {
+                let pgid = match proc.pgid {
+                    Some(p) => p,
+                    None => return f.include.is_empty(),
+                };
+                if f.exclude.contains(&pgid) {
+                    return false;
+                }
+                if f.include.is_empty() {
+                    true
+                } else {
+                    f.include.contains(&pgid)
                 }
             }
         }
@@ -584,6 +724,7 @@ mod tests {
         ProcessInfo {
             pid,
             ppid: None,
+            pgid: None,
             command: comm.to_string(),
             comm: comm.to_string(),
             user: user.to_string(),
@@ -602,6 +743,8 @@ mod tests {
             name: name.to_string(),
             mode: Some(FdMode::Read),
             link_target: None,
+            send_queue: None,
+            recv_queue: None,
         }
     }
 
@@ -762,5 +905,83 @@ mod tests {
         let config = FilterConfig::default();
         assert!(config.matches_process(&make_proc(1, "root", "init")));
         assert!(config.matches_file(&make_file("/any/path", FileType::Reg)));
+    }
+
+    // -- PGID filter parsing --
+
+    #[test]
+    fn test_parse_pgid_include() {
+        let f = parse_pgid_filter("1234,5678").unwrap();
+        assert_eq!(f.include, vec![1234, 5678]);
+        assert!(f.exclude.is_empty());
+    }
+
+    #[test]
+    fn test_parse_pgid_exclude() {
+        let f = parse_pgid_filter("^1234").unwrap();
+        assert!(f.include.is_empty());
+        assert_eq!(f.exclude, vec![1234]);
+    }
+
+    // -- Size filter parsing --
+
+    #[test]
+    fn test_parse_size_filter_greater() {
+        let f = parse_size_filter("+1024").unwrap();
+        assert!(matches!(f.op, SizeOp::GreaterThan));
+        assert_eq!(f.bytes, 1024);
+    }
+
+    #[test]
+    fn test_parse_size_filter_less() {
+        let f = parse_size_filter("-512").unwrap();
+        assert!(matches!(f.op, SizeOp::LessThan));
+        assert_eq!(f.bytes, 512);
+    }
+
+    #[test]
+    fn test_parse_size_filter_exact() {
+        let f = parse_size_filter("2048").unwrap();
+        assert!(matches!(f.op, SizeOp::Exact));
+        assert_eq!(f.bytes, 2048);
+    }
+
+    #[test]
+    fn test_parse_size_filter_suffix() {
+        let f = parse_size_filter("+10M").unwrap();
+        assert!(matches!(f.op, SizeOp::GreaterThan));
+        assert_eq!(f.bytes, 10 * 1_048_576);
+
+        let f2 = parse_size_filter("5KB").unwrap();
+        assert!(matches!(f2.op, SizeOp::Exact));
+        assert_eq!(f2.bytes, 5 * 1024);
+
+        let f3 = parse_size_filter("-2G").unwrap();
+        assert!(matches!(f3.op, SizeOp::LessThan));
+        assert_eq!(f3.bytes, 2 * 1_073_741_824);
+    }
+
+    // -- PGID filter matching --
+
+    #[test]
+    fn test_matches_process_pgid() {
+        let config = FilterConfig {
+            pgids: Some(PgidFilter {
+                include: vec![42],
+                exclude: vec![],
+            }),
+            ..Default::default()
+        };
+        let mut p = make_proc(1, "root", "bash");
+        p.pgid = Some(42);
+        assert!(config.matches_process(&p));
+
+        let mut p2 = make_proc(2, "root", "bash");
+        p2.pgid = Some(99);
+        assert!(!config.matches_process(&p2));
+
+        // Process with no pgid should not match when include list is non-empty
+        let p3 = make_proc(3, "root", "bash");
+        assert!(!config.matches_process(&p3));
     }
 }

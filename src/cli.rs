@@ -71,6 +71,38 @@ pub struct CliArgs {
     #[arg(long = "cmd-width", value_name = "WIDTH")]
     pub cmd_width: Option<usize>,
 
+    /// Suppress warnings
+    #[arg(short = 'w')]
+    pub suppress_warnings: bool,
+
+    /// Select by process group ID (comma-separated, prefix ^ to exclude)
+    #[arg(short = 'g', value_name = "PGID")]
+    pub pgid: Option<String>,
+
+    /// File size filter (prefix: +=greater, -=less, exact match)
+    #[arg(short = 's', value_name = "SIZE")]
+    pub size_filter: Option<String>,
+
+    /// Avoid kernel blocks (compatibility, no-op)
+    #[arg(short = 'b')]
+    pub avoid_blocking: bool,
+
+    /// Cross filesystem/mountpoint (compatibility, no-op)
+    #[arg(short = 'x')]
+    pub cross_fs: bool,
+
+    /// Avoid stat() calls on files
+    #[arg(short = 'S')]
+    pub avoid_stat: bool,
+
+    /// Follow symbolic links
+    #[arg(short = 'L')]
+    pub follow_symlinks: bool,
+
+    /// TCP/TPI info (s=state, q=queue sizes)
+    #[arg(short = 'T', value_name = "INFO", num_args = 0..=1, default_missing_value = "s")]
+    pub tcp_info: Option<String>,
+
     /// Positional: file names to search for
     pub names: Vec<String>,
 }

@@ -8,14 +8,20 @@ pub trait PlatformProvider: Send + Sync {
     fn get_process_detail(&self, pid: u32) -> Result<ProcessInfo>;
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ProviderConfig {
+    pub avoid_stat: bool,
+    pub follow_symlinks: bool,
+}
+
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
 
-pub fn create_provider() -> Box<dyn PlatformProvider> {
+pub fn create_provider(config: ProviderConfig) -> Box<dyn PlatformProvider> {
     #[cfg(target_os = "linux")]
-    { Box::new(linux::LinuxProvider::new()) }
+    { Box::new(linux::LinuxProvider::new(config)) }
     #[cfg(target_os = "macos")]
-    { Box::new(macos::MacosProvider::new()) }
+    { Box::new(macos::MacosProvider::new(config)) }
 }

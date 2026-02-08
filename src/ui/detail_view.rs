@@ -91,7 +91,7 @@ fn render_content(frame: &mut Frame, state: &mut AppState, area: Rect) {
 
 fn render_status(frame: &mut Frame, area: Rect) {
     let status = Paragraph::new(Line::from(Span::styled(
-        "  Tab/Shift+Tab: switch tabs | j/k: scroll | Esc: back | q: quit",
+        "  Tab: switch tabs | j/k: scroll | Ctrl+Y: yank | Ctrl+E: export | Esc: back | q: quit",
         theme::status_style(),
     )));
     frame.render_widget(status, area);
