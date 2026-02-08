@@ -28,7 +28,9 @@ pub enum FileType {
     IPv4,
     IPv6,
     Unix,
+    #[allow(dead_code)]
     Kqueue,
+    #[allow(dead_code)]
     Systm,
     Unknown(String),
 }
