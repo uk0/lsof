@@ -3,7 +3,9 @@ use ratatui::style::{Color, Modifier, Style};
 use crate::model::FileType;
 
 pub fn header_style() -> Style {
-    Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+    Style::default()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::BOLD)
 }
 
 pub fn selected_style() -> Style {
@@ -29,10 +31,14 @@ pub fn status_style() -> Style {
 pub fn file_type_style(ft: &FileType) -> Style {
     match ft {
         FileType::Reg => Style::default().fg(Color::White),
-        FileType::Dir => Style::default().fg(Color::Blue).add_modifier(Modifier::BOLD),
+        FileType::Dir => Style::default()
+            .fg(Color::Blue)
+            .add_modifier(Modifier::BOLD),
         FileType::Link => Style::default().fg(Color::Magenta),
         FileType::Chr => Style::default().fg(Color::Yellow),
-        FileType::Blk => Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD),
+        FileType::Blk => Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD),
         FileType::Fifo => Style::default().fg(Color::LightRed),
         FileType::Pipe => Style::default().fg(Color::LightRed),
         FileType::Sock => Style::default().fg(Color::LightGreen),

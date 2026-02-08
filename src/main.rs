@@ -16,8 +16,8 @@ use filter::FilterConfig;
 use output::OutputFormatter;
 use platform::{create_provider, ProviderConfig};
 
-use app::{AppState, Action};
 use app::action::map_key_to_action;
+use app::{Action, AppState};
 use event::{AppEvent, EventHandler};
 
 fn main() {
@@ -97,8 +97,7 @@ fn run_once(
 
         // Apply file-level filters if any are active.
         if has_file_filters {
-            proc.open_files
-                .retain(|f| filter_config.matches_file(f));
+            proc.open_files.retain(|f| filter_config.matches_file(f));
         }
     }
 
@@ -158,9 +157,9 @@ fn run_once(
 
 fn run_tui(provider: &dyn platform::PlatformProvider) -> std::io::Result<()> {
     // Load initial process list
-    let processes = provider.list_processes().map_err(|e| {
-        std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
-    })?;
+    let processes = provider
+        .list_processes()
+        .map_err(|e| std::io::Error::other(e.to_string()))?;
 
     let mut state = AppState::new(processes);
     let event_handler = EventHandler::new(Duration::from_millis(100));

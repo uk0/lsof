@@ -1,5 +1,5 @@
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, KeyEventKind};
 use crate::app::state::ViewMode;
+use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 
 pub enum Action {
     Quit,

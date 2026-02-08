@@ -1,11 +1,11 @@
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, Paragraph};
+use ratatui::Frame;
 
-use crate::app::AppState;
 use super::theme;
+use crate::app::AppState;
 
 pub fn render(frame: &mut Frame, state: &mut AppState) {
     let area = frame.area();
@@ -14,9 +14,9 @@ pub fn render(frame: &mut Frame, state: &mut AppState) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(3),     // Process list (takes remaining space)
-            Constraint::Length(1),  // Search input line
-            Constraint::Length(1),  // Status line
+            Constraint::Min(3),    // Process list (takes remaining space)
+            Constraint::Length(1), // Search input line
+            Constraint::Length(1), // Status line
         ])
         .split(area);
 
@@ -56,7 +56,7 @@ fn render_process_list(frame: &mut Frame, state: &mut AppState, area: Rect) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(1), // Header
-            Constraint::Min(1),   // List
+            Constraint::Min(1),    // List
         ])
         .split(area);
 
@@ -85,10 +85,7 @@ fn render_search_input(frame: &mut Frame, state: &AppState, area: Rect) {
 
 fn render_status_line(frame: &mut Frame, state: &AppState, area: Rect) {
     let status_text = format!("  {}/{}", state.match_count, state.total_count);
-    let status = Paragraph::new(Line::from(Span::styled(
-        status_text,
-        theme::status_style(),
-    )));
+    let status = Paragraph::new(Line::from(Span::styled(status_text, theme::status_style())));
     frame.render_widget(status, area);
 }
 

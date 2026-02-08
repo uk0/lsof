@@ -1,7 +1,11 @@
 use clap::Parser;
 
 #[derive(Parser, Debug)]
-#[command(name = "loof", version, about = "A modern lsof replacement with interactive TUI")]
+#[command(
+    name = "loof",
+    version,
+    about = "A modern lsof replacement with interactive TUI"
+)]
 pub struct CliArgs {
     /// Select by PID (comma-separated, prefix ^ to exclude)
     #[arg(short = 'p', value_name = "PID")]
@@ -158,33 +162,21 @@ mod tests {
 
     #[test]
     fn test_preprocess_plus_d_uppercase() {
-        let args = vec![
-            "loof".to_string(),
-            "+D".to_string(),
-            "/tmp".to_string(),
-        ];
+        let args = vec!["loof".to_string(), "+D".to_string(), "/tmp".to_string()];
         let result = preprocess_args(args);
         assert_eq!(result, vec!["loof", "--dir-tree", "/tmp"]);
     }
 
     #[test]
     fn test_preprocess_plus_d_lowercase() {
-        let args = vec![
-            "loof".to_string(),
-            "+d".to_string(),
-            "/var".to_string(),
-        ];
+        let args = vec!["loof".to_string(), "+d".to_string(), "/var".to_string()];
         let result = preprocess_args(args);
         assert_eq!(result, vec!["loof", "--dir", "/var"]);
     }
 
     #[test]
     fn test_preprocess_plus_c() {
-        let args = vec![
-            "loof".to_string(),
-            "+c".to_string(),
-            "15".to_string(),
-        ];
+        let args = vec!["loof".to_string(), "+c".to_string(), "15".to_string()];
         let result = preprocess_args(args);
         assert_eq!(result, vec!["loof", "--cmd-width", "15"]);
     }
@@ -200,7 +192,10 @@ mod tests {
             "-t".to_string(),
         ];
         let result = preprocess_args(args);
-        assert_eq!(result, vec!["loof", "-p", "1234", "--dir-tree", "/tmp", "-t"]);
+        assert_eq!(
+            result,
+            vec!["loof", "-p", "1234", "--dir-tree", "/tmp", "-t"]
+        );
     }
 
     #[test]

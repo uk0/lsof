@@ -117,7 +117,16 @@ fn test_inet_filter_empty() {
 fn test_and_mode() {
     let my_pid = process::id().to_string();
     let output = process::Command::new("cargo")
-        .args(["run", "--", "-a", "-p", &my_pid, "-u", "nonexistent_user_xyz", "-t"])
+        .args([
+            "run",
+            "--",
+            "-a",
+            "-p",
+            &my_pid,
+            "-u",
+            "nonexistent_user_xyz",
+            "-t",
+        ])
         .output()
         .expect("Failed to run loof");
 

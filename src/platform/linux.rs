@@ -1,6 +1,6 @@
+use super::{PlatformProvider, ProviderConfig};
 use crate::error::{LoofError, Result};
 use crate::model::*;
-use super::{PlatformProvider, ProviderConfig};
 
 use std::collections::HashMap;
 use std::fs;
@@ -135,32 +135,38 @@ fn build_socket_inode_map() -> HashMap<u64, SocketNetInfo> {
     // TCP (IPv4)
     if let Ok(entries) = procfs::net::tcp() {
         for entry in entries {
-            map.insert(entry.inode, SocketNetInfo {
-                protocol: Protocol::Tcp,
-                local_addr: addr_ip_string(&entry.local_address),
-                local_port: entry.local_address.port(),
-                remote_addr: addr_ip_string(&entry.remote_address),
-                remote_port: entry.remote_address.port(),
-                state: map_tcp_state(&entry.state),
-                tx_queue: Some(entry.tx_queue as u64),
-                rx_queue: Some(entry.rx_queue as u64),
-            });
+            map.insert(
+                entry.inode,
+                SocketNetInfo {
+                    protocol: Protocol::Tcp,
+                    local_addr: addr_ip_string(&entry.local_address),
+                    local_port: entry.local_address.port(),
+                    remote_addr: addr_ip_string(&entry.remote_address),
+                    remote_port: entry.remote_address.port(),
+                    state: map_tcp_state(&entry.state),
+                    tx_queue: Some(entry.tx_queue as u64),
+                    rx_queue: Some(entry.rx_queue as u64),
+                },
+            );
         }
     }
 
     // TCP6 (IPv6)
     if let Ok(entries) = procfs::net::tcp6() {
         for entry in entries {
-            map.insert(entry.inode, SocketNetInfo {
-                protocol: Protocol::Tcp6,
-                local_addr: addr_ip_string(&entry.local_address),
-                local_port: entry.local_address.port(),
-                remote_addr: addr_ip_string(&entry.remote_address),
-                remote_port: entry.remote_address.port(),
-                state: map_tcp_state(&entry.state),
-                tx_queue: Some(entry.tx_queue as u64),
-                rx_queue: Some(entry.rx_queue as u64),
-            });
+            map.insert(
+                entry.inode,
+                SocketNetInfo {
+                    protocol: Protocol::Tcp6,
+                    local_addr: addr_ip_string(&entry.local_address),
+                    local_port: entry.local_address.port(),
+                    remote_addr: addr_ip_string(&entry.remote_address),
+                    remote_port: entry.remote_address.port(),
+                    state: map_tcp_state(&entry.state),
+                    tx_queue: Some(entry.tx_queue as u64),
+                    rx_queue: Some(entry.rx_queue as u64),
+                },
+            );
         }
     }
 
@@ -171,16 +177,19 @@ fn build_socket_inode_map() -> HashMap<u64, SocketNetInfo> {
                 procfs::net::UdpState::Established => TcpState::Established,
                 _ => TcpState::Unknown("NONE".to_string()),
             };
-            map.insert(entry.inode, SocketNetInfo {
-                protocol: Protocol::Udp,
-                local_addr: addr_ip_string(&entry.local_address),
-                local_port: entry.local_address.port(),
-                remote_addr: addr_ip_string(&entry.remote_address),
-                remote_port: entry.remote_address.port(),
-                state,
-                tx_queue: Some(entry.tx_queue as u64),
-                rx_queue: Some(entry.rx_queue as u64),
-            });
+            map.insert(
+                entry.inode,
+                SocketNetInfo {
+                    protocol: Protocol::Udp,
+                    local_addr: addr_ip_string(&entry.local_address),
+                    local_port: entry.local_address.port(),
+                    remote_addr: addr_ip_string(&entry.remote_address),
+                    remote_port: entry.remote_address.port(),
+                    state,
+                    tx_queue: Some(entry.tx_queue as u64),
+                    rx_queue: Some(entry.rx_queue as u64),
+                },
+            );
         }
     }
 
@@ -191,36 +200,43 @@ fn build_socket_inode_map() -> HashMap<u64, SocketNetInfo> {
                 procfs::net::UdpState::Established => TcpState::Established,
                 _ => TcpState::Unknown("NONE".to_string()),
             };
-            map.insert(entry.inode, SocketNetInfo {
-                protocol: Protocol::Udp6,
-                local_addr: addr_ip_string(&entry.local_address),
-                local_port: entry.local_address.port(),
-                remote_addr: addr_ip_string(&entry.remote_address),
-                remote_port: entry.remote_address.port(),
-                state,
-                tx_queue: Some(entry.tx_queue as u64),
-                rx_queue: Some(entry.rx_queue as u64),
-            });
+            map.insert(
+                entry.inode,
+                SocketNetInfo {
+                    protocol: Protocol::Udp6,
+                    local_addr: addr_ip_string(&entry.local_address),
+                    local_port: entry.local_address.port(),
+                    remote_addr: addr_ip_string(&entry.remote_address),
+                    remote_port: entry.remote_address.port(),
+                    state,
+                    tx_queue: Some(entry.tx_queue as u64),
+                    rx_queue: Some(entry.rx_queue as u64),
+                },
+            );
         }
     }
 
     // Unix domain sockets
     if let Ok(entries) = procfs::net::unix() {
         for entry in entries {
-            let path_str = entry.path
+            let path_str = entry
+                .path
                 .as_ref()
                 .map(|p| p.to_string_lossy().to_string())
                 .unwrap_or_default();
-            map.insert(entry.inode, SocketNetInfo {
-                protocol: Protocol::Unix,
-                local_addr: path_str,
-                local_port: 0,
-                remote_addr: String::new(),
-                remote_port: 0,
-                state: TcpState::Unknown("NONE".to_string()),
-                tx_queue: None,
-                rx_queue: None,
-            });
+            map.insert(
+                entry.inode,
+                SocketNetInfo {
+                    protocol: Protocol::Unix,
+                    local_addr: path_str,
+                    local_port: 0,
+                    remote_addr: String::new(),
+                    remote_port: 0,
+                    state: TcpState::Unknown("NONE".to_string()),
+                    tx_queue: None,
+                    rx_queue: None,
+                },
+            );
         }
     }
 
@@ -454,8 +470,8 @@ impl LinuxProvider {
 impl PlatformProvider for LinuxProvider {
     fn list_processes(&self) -> Result<Vec<ProcessInfo>> {
         let mut processes = Vec::new();
-        let all_procs = procfs::process::all_processes()
-            .map_err(|e| LoofError::Platform(e.to_string()))?;
+        let all_procs =
+            procfs::process::all_processes().map_err(|e| LoofError::Platform(e.to_string()))?;
 
         for proc_result in all_procs {
             let proc = match proc_result {
@@ -525,21 +541,15 @@ impl PlatformProvider for LinuxProvider {
                 if let procfs::process::MMapPath::Path(ref p) = map.pathname {
                     let path_str = p.to_string_lossy().to_string();
                     if seen_paths.insert(path_str.clone()) {
-                        let (file_type, device, size_off, node) =
-                            match fs::metadata(p) {
-                                Ok(meta) => (
-                                    classify_file_type(&meta),
-                                    format_device(meta.dev()),
-                                    Some(meta.size()),
-                                    meta.ino().to_string(),
-                                ),
-                                Err(_) => (
-                                    FileType::Reg,
-                                    String::new(),
-                                    None,
-                                    String::new(),
-                                ),
-                            };
+                        let (file_type, device, size_off, node) = match fs::metadata(p) {
+                            Ok(meta) => (
+                                classify_file_type(&meta),
+                                format_device(meta.dev()),
+                                Some(meta.size()),
+                                meta.ino().to_string(),
+                            ),
+                            Err(_) => (FileType::Reg, String::new(), None, String::new()),
+                        };
                         results.push(OpenFileInfo {
                             fd: FdType::Mem,
                             file_type,
@@ -807,12 +817,12 @@ impl PlatformProvider for LinuxProvider {
         match pid {
             Some(target_pid) => {
                 // Get the process's FDs and find which are sockets.
-                let process = procfs::process::Process::new(target_pid as i32)
-                    .map_err(|e| LoofError::Platform(
-                        format!("Cannot open process {}: {}", target_pid, e),
-                    ))?;
+                let process = procfs::process::Process::new(target_pid as i32).map_err(|e| {
+                    LoofError::Platform(format!("Cannot open process {}: {}", target_pid, e))
+                })?;
 
-                let stat = process.stat()
+                let stat = process
+                    .stat()
                     .map_err(|e| LoofError::Platform(e.to_string()))?;
                 let command = Some(stat.comm.clone());
 
@@ -868,9 +878,7 @@ impl PlatformProvider for LinuxProvider {
                     };
 
                     let proc_pid = proc.pid as u32;
-                    let comm = proc.stat()
-                        .map(|s| s.comm.clone())
-                        .unwrap_or_default();
+                    let comm = proc.stat().map(|s| s.comm.clone()).unwrap_or_default();
 
                     let fds = match proc.fd() {
                         Ok(fds) => fds,
@@ -923,7 +931,8 @@ impl PlatformProvider for LinuxProvider {
 
     fn get_process_detail(&self, pid: u32) -> Result<ProcessInfo> {
         let processes = self.list_processes()?;
-        let mut proc_info = processes.into_iter()
+        let mut proc_info = processes
+            .into_iter()
             .find(|p| p.pid == pid)
             .ok_or(LoofError::ProcessNotFound(pid))?;
 

@@ -8,6 +8,7 @@ pub struct OpenFileInfo {
     pub size_off: Option<u64>,
     pub node: String,
     pub name: String,
+    #[allow(dead_code)]
     pub mode: Option<FdMode>,
     pub link_target: Option<String>,
     pub send_queue: Option<u64>,
@@ -55,10 +56,14 @@ impl fmt::Display for FileType {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum FdType {
+    #[allow(dead_code)]
     Cwd,
     Txt,
+    #[allow(dead_code)]
     Mem,
+    #[allow(dead_code)]
     Rtd,
+    #[allow(dead_code)]
     Mmap,
     Numbered(u32, FdMode),
 }

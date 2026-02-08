@@ -153,7 +153,9 @@ fn parse_size_filter(s: &str) -> Option<SizeFilter> {
 
     // Split numeric part from suffix
     let rest = rest.trim();
-    let num_end = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
+    let num_end = rest
+        .find(|c: char| !c.is_ascii_digit())
+        .unwrap_or(rest.len());
     let (num_str, suffix) = rest.split_at(num_end);
     let base: u64 = num_str.parse().ok()?;
 
@@ -246,6 +248,7 @@ impl FilterConfig {
     }
 
     /// Returns `true` if no filters are configured at all.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.pids.is_none()
             && self.pgids.is_none()
@@ -263,7 +266,11 @@ impl FilterConfig {
     /// sufficient; in AND mode all active filters must match.
     pub fn matches_process(&self, proc: &ProcessInfo) -> bool {
         // If no process-level filters are set, everything matches.
-        if self.pids.is_none() && self.pgids.is_none() && self.users.is_none() && self.commands.is_none() {
+        if self.pids.is_none()
+            && self.pgids.is_none()
+            && self.users.is_none()
+            && self.commands.is_none()
+        {
             return true;
         }
 
@@ -403,13 +410,13 @@ impl FilterConfig {
         match &self.users {
             None => true,
             Some(f) => {
-                if f.exclude.iter().any(|u| *u == proc.user) {
+                if f.exclude.contains(&proc.user) {
                     return false;
                 }
                 if f.include.is_empty() {
                     true
                 } else {
-                    f.include.iter().any(|u| *u == proc.user)
+                    f.include.contains(&proc.user)
                 }
             }
         }
@@ -522,9 +529,7 @@ fn parse_inet_filter(s: &str) -> InetFilter {
     }
 
     // Extract protocol (letters before @ or :)
-    let proto_end = remaining
-        .find(|c: char| c == '@' || c == ':')
-        .unwrap_or(remaining.len());
+    let proto_end = remaining.find(['@', ':']).unwrap_or(remaining.len());
     if proto_end > 0 {
         let proto = &remaining[..proto_end];
         if !proto.is_empty() {
@@ -559,7 +564,7 @@ fn parse_inet_filter(s: &str) -> InetFilter {
 // ---------------------------------------------------------------------------
 
 /// Check if a file path is inside a directory tree (recursive).
-fn file_in_dir_tree(file_name: &str, dir: &PathBuf) -> bool {
+fn file_in_dir_tree(file_name: &str, dir: &std::path::Path) -> bool {
     let dir_str = dir.to_string_lossy();
     let dir_prefix = if dir_str.ends_with('/') {
         dir_str.to_string()
@@ -570,7 +575,7 @@ fn file_in_dir_tree(file_name: &str, dir: &PathBuf) -> bool {
 }
 
 /// Check if a file path is directly inside a directory (non-recursive).
-fn file_in_dir(file_name: &str, dir: &PathBuf) -> bool {
+fn file_in_dir(file_name: &str, dir: &std::path::Path) -> bool {
     let path = std::path::Path::new(file_name);
     if let Some(parent) = path.parent() {
         let dir_canonical = dir.to_string_lossy();
@@ -877,7 +882,10 @@ mod tests {
             port: Some(80),
             ..Default::default()
         };
-        let mut file = make_file("127.0.0.1:80 -> 10.0.0.1:12345 (ESTABLISHED)", FileType::IPv4);
+        let mut file = make_file(
+            "127.0.0.1:80 -> 10.0.0.1:12345 (ESTABLISHED)",
+            FileType::IPv4,
+        );
         file.node = "TCP".to_string();
         assert!(inet.matches_file(&file));
     }

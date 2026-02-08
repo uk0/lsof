@@ -6,8 +6,10 @@ pub struct OutputFormatter {
     /// Maximum width for the COMMAND column (default 9, configurable via +c).
     pub cmd_width: usize,
     /// `-n` flag: suppress hostname resolution (print numeric addresses).
+    #[allow(dead_code)]
     pub no_hostname: bool,
     /// `-P` flag: suppress port-name resolution (print numeric ports).
+    #[allow(dead_code)]
     pub no_portname: bool,
     /// `-l` flag: list UID numbers instead of login names.
     pub list_uid: bool,
@@ -40,14 +42,29 @@ impl OutputFormatter {
     pub fn print_header(&self) {
         if self.show_ppid {
             println!(
-                "{:<width$} {:>5} {:>5} {:<8} {:>4}  {:>6} {:>8}  {:>8}  {:>4} {}",
-                "COMMAND", "PID", "PPID", "USER", "FD", "TYPE", "DEVICE", "SIZE/OFF", "NODE", "NAME",
+                "{:<width$} {:>5} {:>5} {:<8} {:>4}  {:>6} {:>8}  {:>8}  {:>4} NAME",
+                "COMMAND",
+                "PID",
+                "PPID",
+                "USER",
+                "FD",
+                "TYPE",
+                "DEVICE",
+                "SIZE/OFF",
+                "NODE",
                 width = self.cmd_width,
             );
         } else {
             println!(
-                "{:<width$} {:>5} {:<8} {:>4}  {:>6} {:>8}  {:>8}  {:>4} {}",
-                "COMMAND", "PID", "USER", "FD", "TYPE", "DEVICE", "SIZE/OFF", "NODE", "NAME",
+                "{:<width$} {:>5} {:<8} {:>4}  {:>6} {:>8}  {:>8}  {:>4} NAME",
+                "COMMAND",
+                "PID",
+                "USER",
+                "FD",
+                "TYPE",
+                "DEVICE",
+                "SIZE/OFF",
+                "NODE",
                 width = self.cmd_width,
             );
         }
@@ -69,10 +86,7 @@ impl OutputFormatter {
             // When -T flag includes "q", append queue sizes for network files.
             if let Some(ref tcp_flags) = self.tcp_info {
                 if tcp_flags.contains('q') {
-                    let is_network = matches!(
-                        file.file_type,
-                        FileType::IPv4 | FileType::IPv6
-                    );
+                    let is_network = matches!(file.file_type, FileType::IPv4 | FileType::IPv6);
                     if is_network {
                         if let (Some(rq), Some(sq)) = (file.recv_queue, file.send_queue) {
                             display_name.push_str(&format!(" QR={} QS={}", rq, sq));
@@ -127,10 +141,7 @@ impl OutputFormatter {
     /// Common field characters:
     ///   p = PID, c = command, u = user, n = name, f = FD, t = type
     pub fn print_field_output(&self, proc: &ProcessInfo) {
-        let fields = self
-            .field_output
-            .as_deref()
-            .unwrap_or("pcuftn");
+        let fields = self.field_output.as_deref().unwrap_or("pcuftn");
 
         // Process-level fields
         for ch in fields.chars() {
@@ -150,7 +161,7 @@ impl OutputFormatter {
                     }
                 }
                 'g' => println!("g{}", proc.pid), // PGID placeholder
-                _ => {} // file-level fields handled below
+                _ => {}                           // file-level fields handled below
             }
         }
 

@@ -1,8 +1,8 @@
-use ratatui::widgets::{ListState, TableState};
-use crate::model::{ProcessInfo, OpenFileInfo};
+use crate::model::{OpenFileInfo, ProcessInfo};
 use crate::platform::PlatformProvider;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use ratatui::widgets::{ListState, TableState};
 
 pub enum ViewMode {
     Search,
@@ -27,6 +27,7 @@ pub struct AppState {
     pub file_table_state: TableState,
     pub tree_list_state: ListState,
     pub should_quit: bool,
+    #[allow(dead_code)]
     pub loading: bool,
     pub match_count: usize,
     pub total_count: usize,
@@ -75,7 +76,9 @@ impl AppState {
                 .enumerate()
                 .filter_map(|(i, p)| {
                     let haystack = format!("{} {} {}", p.pid, p.comm, p.user);
-                    matcher.fuzzy_match(&haystack, query).map(|score| (i, score))
+                    matcher
+                        .fuzzy_match(&haystack, query)
+                        .map(|score| (i, score))
                 })
                 .collect();
 
@@ -232,13 +235,15 @@ impl AppState {
             DetailTab::Network => proc
                 .open_files
                 .iter()
-                .filter(|f| matches!(
-                    f.file_type,
-                    crate::model::FileType::IPv4
-                        | crate::model::FileType::IPv6
-                        | crate::model::FileType::Sock
-                        | crate::model::FileType::Unix
-                ))
+                .filter(|f| {
+                    matches!(
+                        f.file_type,
+                        crate::model::FileType::IPv4
+                            | crate::model::FileType::IPv6
+                            | crate::model::FileType::Sock
+                            | crate::model::FileType::Unix
+                    )
+                })
                 .count(),
             DetailTab::FileTree => {
                 // Approximate: directories + files
@@ -254,17 +259,26 @@ impl AppState {
             DetailTab::OpenFiles => {
                 let idx = self.file_table_state.selected()?;
                 let file = open_files.get(idx)?;
-                Some(format!("{}\t{}\t{}\t{}\t{}\t{}",
-                    file.fd, file.file_type, file.device,
+                Some(format!(
+                    "{}\t{}\t{}\t{}\t{}\t{}",
+                    file.fd,
+                    file.file_type,
+                    file.device,
                     file.size_off.map(|s| s.to_string()).unwrap_or_default(),
-                    file.node, file.name))
+                    file.node,
+                    file.name
+                ))
             }
             _ => None,
         }
     }
 
     /// Export full process data as formatted text.
-    pub fn export_process_data(&self, process: &ProcessInfo, open_files: &[OpenFileInfo]) -> String {
+    pub fn export_process_data(
+        &self,
+        process: &ProcessInfo,
+        open_files: &[OpenFileInfo],
+    ) -> String {
         let mut out = String::new();
         out.push_str(&format!("PID: {}\n", process.pid));
         out.push_str(&format!("COMMAND: {}\n", process.comm));
@@ -275,10 +289,15 @@ impl AppState {
         out.push_str(&format!("\nOpen Files ({}):\n", open_files.len()));
         out.push_str("FD\tTYPE\tDEVICE\tSIZE/OFF\tNODE\tNAME\n");
         for f in open_files {
-            out.push_str(&format!("{}\t{}\t{}\t{}\t{}\t{}\n",
-                f.fd, f.file_type, f.device,
+            out.push_str(&format!(
+                "{}\t{}\t{}\t{}\t{}\t{}\n",
+                f.fd,
+                f.file_type,
+                f.device,
                 f.size_off.map(|s| s.to_string()).unwrap_or_default(),
-                f.node, f.name));
+                f.node,
+                f.name
+            ));
         }
         out
     }
@@ -287,7 +306,7 @@ impl AppState {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::model::open_file::{OpenFileInfo, FileType, FdType, FdMode};
+    use crate::model::open_file::{FdMode, FdType, FileType, OpenFileInfo};
     use crate::model::process::ProcessInfo;
 
     fn make_test_file(name: &str) -> OpenFileInfo {

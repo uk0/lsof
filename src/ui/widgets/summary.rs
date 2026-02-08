@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
 use crate::app::AppState;
 use crate::model::FileType;
@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, state: &AppState, area: Rect) {
         .constraints([
             Constraint::Length(5), // Process info
             Constraint::Length(1), // Separator
-            Constraint::Min(3),   // FD type stats
+            Constraint::Min(3),    // FD type stats
         ])
         .split(area);
 
@@ -41,7 +41,9 @@ pub fn render(frame: &mut Frame, state: &AppState, area: Rect) {
         Line::from(vec![
             Span::styled("  PPID:    ", theme::header_style()),
             Span::styled(
-                proc.ppid.map(|p| p.to_string()).unwrap_or_else(|| "-".into()),
+                proc.ppid
+                    .map(|p| p.to_string())
+                    .unwrap_or_else(|| "-".into()),
                 theme::normal_style(),
             ),
         ]),
@@ -88,10 +90,12 @@ pub fn render(frame: &mut Frame, state: &AppState, area: Rect) {
     let net_count = proc
         .open_files
         .iter()
-        .filter(|f| matches!(
-            f.file_type,
-            FileType::IPv4 | FileType::IPv6 | FileType::Sock | FileType::Unix
-        ))
+        .filter(|f| {
+            matches!(
+                f.file_type,
+                FileType::IPv4 | FileType::IPv6 | FileType::Sock | FileType::Unix
+            )
+        })
         .count();
 
     stat_lines.push(Line::from(Span::raw("")));

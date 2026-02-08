@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
-use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, Paragraph};
+use ratatui::Frame;
 
 use crate::app::AppState;
 use crate::model::OpenFileInfo;
@@ -24,10 +24,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
     };
 
     if proc.open_files.is_empty() {
-        let msg = Paragraph::new(Span::styled(
-            "  No open files",
-            theme::status_style(),
-        ));
+        let msg = Paragraph::new(Span::styled("  No open files", theme::status_style()));
         frame.render_widget(msg, area);
         return;
     }
@@ -47,9 +44,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
             };
             tree.entry(dir_key).or_default().push(entry);
         } else {
-            tree.entry("(other)".to_string())
-                .or_default()
-                .push(entry);
+            tree.entry("(other)".to_string()).or_default().push(entry);
         }
     }
 
@@ -64,22 +59,13 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
 
         // File lines with type tag and size
         for entry in files {
-            let size_str = entry
-                .size
-                .map(|s| format_size(s))
-                .unwrap_or_default();
+            let size_str = entry.size.map(format_size).unwrap_or_default();
             let label = if size_str.is_empty() {
                 format!("    {} [{}]", entry.filename, entry.file_type)
             } else {
-                format!(
-                    "    {} [{}] {}",
-                    entry.filename, entry.file_type, size_str
-                )
+                format!("    {} [{}] {}", entry.filename, entry.file_type, size_str)
             };
-            items.push(ListItem::new(Line::from(Span::styled(
-                label,
-                entry.style,
-            ))));
+            items.push(ListItem::new(Line::from(Span::styled(label, entry.style))));
         }
     }
 

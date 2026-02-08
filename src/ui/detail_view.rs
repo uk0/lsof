@@ -1,13 +1,13 @@
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
+use ratatui::Frame;
 
-use crate::app::AppState;
-use crate::app::state::DetailTab;
 use super::theme;
 use super::widgets;
+use crate::app::state::DetailTab;
+use crate::app::AppState;
 
 pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
     let chunks = Layout::default()
@@ -15,7 +15,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
         .constraints([
             Constraint::Length(2), // Process header
             Constraint::Length(1), // Tab bar
-            Constraint::Min(3),   // Content area
+            Constraint::Min(3),    // Content area
             Constraint::Length(1), // Status line
         ])
         .split(area);
@@ -32,20 +32,18 @@ fn render_header(frame: &mut Frame, state: &AppState, area: Rect) {
         None => return,
     };
 
-    let lines = vec![
-        Line::from(vec![
-            Span::styled(" PID ", theme::header_style()),
-            Span::styled(format!("{}", proc.pid), theme::normal_style()),
-            Span::styled("  CMD ", theme::header_style()),
-            Span::styled(&proc.comm, theme::normal_style()),
-            Span::styled("  USER ", theme::header_style()),
-            Span::styled(&proc.user, theme::normal_style()),
-            Span::styled(
-                format!("  FDs {}", proc.open_files.len()),
-                theme::status_style(),
-            ),
-        ]),
-    ];
+    let lines = vec![Line::from(vec![
+        Span::styled(" PID ", theme::header_style()),
+        Span::styled(format!("{}", proc.pid), theme::normal_style()),
+        Span::styled("  CMD ", theme::header_style()),
+        Span::styled(&proc.comm, theme::normal_style()),
+        Span::styled("  USER ", theme::header_style()),
+        Span::styled(&proc.user, theme::normal_style()),
+        Span::styled(
+            format!("  FDs {}", proc.open_files.len()),
+            theme::status_style(),
+        ),
+    ])];
 
     frame.render_widget(Paragraph::new(lines), area);
 }
@@ -62,8 +60,8 @@ fn render_tab_bar(frame: &mut Frame, state: &AppState, area: Rect) {
         .iter()
         .enumerate()
         .flat_map(|(i, (label, tab))| {
-            let is_active = std::mem::discriminant(&state.detail_tab)
-                == std::mem::discriminant(tab);
+            let is_active =
+                std::mem::discriminant(&state.detail_tab) == std::mem::discriminant(tab);
             let style = if is_active {
                 theme::header_style().add_modifier(Modifier::UNDERLINED)
             } else {

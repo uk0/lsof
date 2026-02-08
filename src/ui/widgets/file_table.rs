@@ -1,8 +1,8 @@
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::Span;
 use ratatui::widgets::{Cell, Row, Table};
+use ratatui::Frame;
 
 use crate::app::AppState;
 use crate::ui::theme;
@@ -28,10 +28,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
         .iter()
         .map(|f| {
             let style = theme::file_type_style(&f.file_type);
-            let size_str = f
-                .size_off
-                .map(|s| format_size(s))
-                .unwrap_or_default();
+            let size_str = f.size_off.map(format_size).unwrap_or_default();
             let name_display = match &f.link_target {
                 Some(target) => format!("{} -> {}", f.name, target),
                 None => f.name.clone(),
@@ -58,9 +55,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
 
     let table = Table::new(rows, widths)
         .header(header)
-        .row_highlight_style(
-            theme::selected_style().add_modifier(Modifier::BOLD),
-        );
+        .row_highlight_style(theme::selected_style().add_modifier(Modifier::BOLD));
 
     frame.render_stateful_widget(table, area, &mut state.file_table_state);
 }

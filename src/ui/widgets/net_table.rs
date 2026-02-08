@@ -1,8 +1,8 @@
-use ratatui::Frame;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Modifier;
 use ratatui::text::Span;
 use ratatui::widgets::{Cell, Paragraph, Row, Table};
+use ratatui::Frame;
 
 use crate::app::AppState;
 use crate::model::FileType;
@@ -17,10 +17,12 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
     let net_files: Vec<_> = proc
         .open_files
         .iter()
-        .filter(|f| matches!(
-            f.file_type,
-            FileType::IPv4 | FileType::IPv6 | FileType::Sock | FileType::Unix
-        ))
+        .filter(|f| {
+            matches!(
+                f.file_type,
+                FileType::IPv4 | FileType::IPv6 | FileType::Sock | FileType::Unix
+            )
+        })
         .collect();
 
     if net_files.is_empty() {
@@ -59,9 +61,7 @@ pub fn render(frame: &mut Frame, state: &mut AppState, area: Rect) {
 
     let table = Table::new(rows, widths)
         .header(header)
-        .row_highlight_style(
-            theme::selected_style().add_modifier(Modifier::BOLD),
-        );
+        .row_highlight_style(theme::selected_style().add_modifier(Modifier::BOLD));
 
     frame.render_stateful_widget(table, area, &mut state.file_table_state);
 }

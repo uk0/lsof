@@ -1,5 +1,6 @@
 use std::fmt;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct NetworkInfo {
     pub protocol: Protocol,
@@ -12,6 +13,7 @@ pub struct NetworkInfo {
     pub command: Option<String>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Protocol {
     Tcp,

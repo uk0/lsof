@@ -1,6 +1,6 @@
+use super::{PlatformProvider, ProviderConfig};
 use crate::error::{LoofError, Result};
 use crate::model::*;
-use super::{PlatformProvider, ProviderConfig};
 use sysinfo::System;
 
 use std::ffi::CStr;
@@ -8,9 +8,7 @@ use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::os::raw::{c_int, c_void};
 
-use libproc::libproc::file_info::{
-    pidfdinfo, ListFDs, ProcFDInfo, ProcFDType,
-};
+use libproc::libproc::file_info::{pidfdinfo, ListFDs, ProcFDInfo, ProcFDType};
 use libproc::libproc::net_info::{SocketFDInfo, SocketInfoKind, TcpSIState};
 use libproc::libproc::proc_pid::{listpidinfo, pidinfo, pidpath};
 use libproc::libproc::task_info::TaskAllInfo;
@@ -162,13 +160,7 @@ extern "C" {
 unsafe fn raw_pidfdinfo<T: Copy>(pid: i32, fd: i32, flavor: i32) -> Option<T> {
     let mut info: T = mem::zeroed();
     let size = mem::size_of::<T>() as c_int;
-    let ret = proc_pidfdinfo(
-        pid,
-        fd,
-        flavor,
-        &mut info as *mut T as *mut c_void,
-        size,
-    );
+    let ret = proc_pidfdinfo(pid, fd, flavor, &mut info as *mut T as *mut c_void, size);
     if ret <= 0 {
         None
     } else {
@@ -178,15 +170,11 @@ unsafe fn raw_pidfdinfo<T: Copy>(pid: i32, fd: i32, flavor: i32) -> Option<T> {
 
 /// Extract a UTF-8 path from a fixed-size i8 buffer (C string).
 fn path_from_c_buf(buf: &[i8]) -> String {
-    let ptr = buf.as_ptr() as *const i8;
+    let ptr = buf.as_ptr();
     if buf[0] == 0 {
         return String::new();
     }
-    unsafe {
-        CStr::from_ptr(ptr)
-            .to_string_lossy()
-            .into_owned()
-    }
+    unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
 }
 
 /// Determine the `FdMode` from the kernel `fi_openflags` field.
@@ -261,8 +249,7 @@ fn tcp_state_from_si(state: TcpSIState) -> TcpState {
 
 /// Build an `OpenFileInfo` from a vnode FD.
 fn open_file_from_vnode(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
-    let info: VnodeFdInfoWithPath =
-        unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDVNODEPATHINFO)? };
+    let info: VnodeFdInfoWithPath = unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDVNODEPATHINFO)? };
 
     let mode = fd_mode_from_openflags(info.pfi.fi_openflags);
     let file_type = file_type_from_vtype(info.pvip.vip_vi.vi_type);
@@ -271,7 +258,9 @@ fn open_file_from_vnode(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
 
     // Resolve symlink target if the vnode is a symbolic link.
     let link_target = if file_type == FileType::Link {
-        std::fs::read_link(&path).ok().map(|p| p.to_string_lossy().into_owned())
+        std::fs::read_link(&path)
+            .ok()
+            .map(|p| p.to_string_lossy().into_owned())
     } else {
         None
     };
@@ -455,8 +444,7 @@ fn open_file_from_socket(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
 
 /// Build an `OpenFileInfo` from a pipe FD.
 fn open_file_from_pipe(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
-    let info: PipeFdInfo =
-        unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDPIPEINFO)? };
+    let info: PipeFdInfo = unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDPIPEINFO)? };
 
     let mode = fd_mode_from_openflags(info.pfi.fi_openflags);
     let stat = &info.pipeinfo.pipe_stat;
@@ -480,8 +468,7 @@ fn open_file_from_pipe(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
 
 /// Build an `OpenFileInfo` from a kqueue FD.
 fn open_file_from_kqueue(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
-    let info: KqueueFdInfo =
-        unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDKQUEUEINFO)? };
+    let info: KqueueFdInfo = unsafe { raw_pidfdinfo(pid, fd_num, PROC_PIDFDKQUEUEINFO)? };
 
     let mode = fd_mode_from_openflags(info.pfi.fi_openflags);
 
@@ -491,7 +478,10 @@ fn open_file_from_kqueue(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
         device: String::new(),
         size_off: None,
         node: "kqueue".to_string(),
-        name: format!("count={}, state=0x{:x}", info.kqueueinfo.kq_stat.vst_size, info.kqueueinfo.kq_state),
+        name: format!(
+            "count={}, state=0x{:x}",
+            info.kqueueinfo.kq_stat.vst_size, info.kqueueinfo.kq_state
+        ),
         mode: Some(mode),
         link_target: None,
         send_queue: None,
@@ -500,6 +490,7 @@ fn open_file_from_kqueue(fd_num: i32, pid: i32) -> Option<OpenFileInfo> {
 }
 
 /// Collect `NetworkInfo` entries from a single socket FD.
+#[allow(dead_code)]
 fn network_info_from_socket(fd_num: i32, pid: i32, command: Option<&str>) -> Option<NetworkInfo> {
     let sock: SocketFDInfo = pidfdinfo(pid, fd_num).ok()?;
     let si = &sock.psi;
@@ -624,17 +615,13 @@ impl PlatformProvider for MacosProvider {
 
         for (pid, proc_info) in sys.processes() {
             let pid_val = pid.as_u32();
-            let uid = proc_info.user_id()
-                .map(|u| **u)
-                .unwrap_or(0);
+            let uid = proc_info.user_id().map(|u| **u).unwrap_or(0);
             let user = users::get_user_by_uid(uid)
                 .map(|u| u.name().to_string_lossy().to_string())
                 .unwrap_or_else(|| uid.to_string());
 
             let comm = proc_info.name().to_string();
-            let cmd_parts: Vec<String> = proc_info.cmd().iter()
-                .map(|s| s.to_string())
-                .collect();
+            let cmd_parts: Vec<String> = proc_info.cmd().iter().map(|s| s.to_string()).collect();
             let command = if cmd_parts.is_empty() {
                 comm.clone()
             } else {
@@ -774,11 +761,9 @@ impl PlatformProvider for MacosProvider {
                     for fd in &fds {
                         let fd_type: ProcFDType = fd.proc_fdtype.into();
                         if let ProcFDType::Socket = fd_type {
-                            if let Some(net) = network_info_from_socket(
-                                fd.proc_fd,
-                                pid_i32,
-                                Some(&p.comm),
-                            ) {
+                            if let Some(net) =
+                                network_info_from_socket(fd.proc_fd, pid_i32, Some(&p.comm))
+                            {
                                 connections.push(net);
                             }
                         }
@@ -792,7 +777,8 @@ impl PlatformProvider for MacosProvider {
 
     fn get_process_detail(&self, pid: u32) -> Result<ProcessInfo> {
         let processes = self.list_processes()?;
-        let mut proc_info = processes.into_iter()
+        let mut proc_info = processes
+            .into_iter()
             .find(|p| p.pid == pid)
             .ok_or(LoofError::ProcessNotFound(pid))?;
 

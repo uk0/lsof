@@ -1,5 +1,5 @@
-use std::process;
 use assert_cmd::Command;
+use std::process;
 
 // ---------------------------------------------------------------------------
 // Header output tests
@@ -17,13 +17,22 @@ fn test_output_has_correct_headers() {
     let first_line = stdout.lines().next().unwrap_or("");
 
     // The header should contain the standard lsof column names
-    assert!(first_line.contains("COMMAND"), "Header should contain COMMAND");
+    assert!(
+        first_line.contains("COMMAND"),
+        "Header should contain COMMAND"
+    );
     assert!(first_line.contains("PID"), "Header should contain PID");
     assert!(first_line.contains("USER"), "Header should contain USER");
     assert!(first_line.contains("FD"), "Header should contain FD");
     assert!(first_line.contains("TYPE"), "Header should contain TYPE");
-    assert!(first_line.contains("DEVICE"), "Header should contain DEVICE");
-    assert!(first_line.contains("SIZE/OFF"), "Header should contain SIZE/OFF");
+    assert!(
+        first_line.contains("DEVICE"),
+        "Header should contain DEVICE"
+    );
+    assert!(
+        first_line.contains("SIZE/OFF"),
+        "Header should contain SIZE/OFF"
+    );
     assert!(first_line.contains("NODE"), "Header should contain NODE");
     assert!(first_line.contains("NAME"), "Header should contain NAME");
 }

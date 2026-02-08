@@ -1,7 +1,7 @@
-pub mod process;
-pub mod open_file;
 pub mod network;
+pub mod open_file;
+pub mod process;
 
-pub use process::ProcessInfo;
-pub use open_file::{OpenFileInfo, FileType, FdType, FdMode};
 pub use network::{NetworkInfo, Protocol, TcpState};
+pub use open_file::{FdMode, FdType, FileType, OpenFileInfo};
+pub use process::ProcessInfo;
