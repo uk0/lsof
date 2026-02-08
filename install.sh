@@ -62,9 +62,12 @@ get_latest_version() {
     echo "$version"
 }
 
+CLEANUP_DIR=""
+trap 'rm -rf "$CLEANUP_DIR"' EXIT
+
 # Download and install
 install() {
-    local platform version download_url tmp_dir archive
+    local platform version download_url archive tmp_dir
 
     platform="$(detect_platform)"
     info "Detected platform: ${platform}"
@@ -76,7 +79,7 @@ install() {
     download_url="https://github.com/${REPO}/releases/download/${version}/${archive}"
 
     tmp_dir="$(mktemp -d)"
-    trap 'rm -rf "$tmp_dir"' EXIT
+    CLEANUP_DIR="$tmp_dir"
 
     info "Downloading ${download_url} ..."
     if command -v curl &>/dev/null; then
