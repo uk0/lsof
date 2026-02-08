@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 
 REPO="uk0/lsof"
 BINARY="loof"
@@ -33,7 +33,6 @@ detect_platform() {
         *)              error "Unsupported architecture: $arch" ;;
     esac
 
-    # Map to artifact name
     case "${os}-${arch}" in
         linux-amd64)  echo "loof-linux-amd64" ;;
         macos-arm64)  echo "loof-macos-arm64" ;;
@@ -55,19 +54,19 @@ get_latest_version() {
         error "Neither curl nor wget found. Please install one of them."
     fi
 
-    # Extract tag_name value — portable across macOS/Linux sed
     version=$(echo "$json" | grep -o '"tag_name" *: *"[^"]*"' | head -1 | grep -o '"v[^"]*"' | tr -d '"')
-
     [ -z "$version" ] && error "Failed to fetch latest version. Check https://github.com/${REPO}/releases"
     echo "$version"
 }
 
-CLEANUP_DIR=""
-trap 'rm -rf "$CLEANUP_DIR"' EXIT
+# Global temp dir for cleanup
+TMP_DIR=""
+cleanup() { [ -n "$TMP_DIR" ] && rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
 
 # Download and install
 install() {
-    local platform version download_url archive tmp_dir
+    local platform version download_url archive
 
     platform="$(detect_platform)"
     info "Detected platform: ${platform}"
@@ -78,24 +77,23 @@ install() {
     archive="${platform}.tar.gz"
     download_url="https://github.com/${REPO}/releases/download/${version}/${archive}"
 
-    tmp_dir="$(mktemp -d)"
-    CLEANUP_DIR="$tmp_dir"
+    TMP_DIR="$(mktemp -d)"
 
     info "Downloading ${download_url} ..."
     if command -v curl &>/dev/null; then
-        curl -fSL "$download_url" -o "${tmp_dir}/${archive}"
+        curl -fSL "$download_url" -o "${TMP_DIR}/${archive}"
     else
-        wget -q "$download_url" -O "${tmp_dir}/${archive}"
+        wget -q "$download_url" -O "${TMP_DIR}/${archive}"
     fi
 
     info "Extracting ..."
-    tar xzf "${tmp_dir}/${archive}" -C "$tmp_dir"
+    tar xzf "${TMP_DIR}/${archive}" -C "$TMP_DIR"
 
     info "Installing to ${INSTALL_DIR}/${BINARY} ..."
     if [ -w "$INSTALL_DIR" ]; then
-        mv "${tmp_dir}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+        mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
     else
-        sudo mv "${tmp_dir}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
+        sudo mv "${TMP_DIR}/${BINARY}" "${INSTALL_DIR}/${BINARY}"
     fi
     chmod +x "${INSTALL_DIR}/${BINARY}"
 
